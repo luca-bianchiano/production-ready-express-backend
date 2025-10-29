@@ -1,16 +1,18 @@
-const express = require("express");
-const { getUsers, getUserById } = require("../controllers/user.controller");
-const { requireAuth } = require("../middleware/auth"); // <-- make sure this line is present
+const express = require('express');
+const { getUsers, getUserById, updateUser, deleteUser } = require('../controllers/user.controller');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Protected route
-router.get("/me", requireAuth, async (req, res) => {
-    res.json({ id: req.user.id, role: req.user.role });
-});
+router.get('/', getUsers);
+router.get('/:id', getUserById);
+router.put('/:id', requireAuth, updateUser);     // JWT-protected
+router.delete('/:id', requireAuth, deleteUser);  // JWT-protected
 
-router.get("/", getUsers);
-router.get("/:id", getUserById);
+router.get('/me', requireAuth, (req, res) => {
+    const user = { ...req.user }; // convert Mongoose doc to plain object
+    res.json(user);
+});
 
 
 module.exports = router;

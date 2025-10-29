@@ -16,24 +16,28 @@ async function getUserFromToken(token) {
 }
 
 // Express middleware to protect REST routes
-async function requireAuth(req, res, next) {
+const requireAuth = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
     try {
-        const authHeader = req.headers.authorization || "";
-        if (!authHeader) return res.status(401).json({ message: "Unauthorized" });
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userDoc = await User.findById(decoded.id);
+        if (!userDoc) return res.status(401).json({ message: 'Unauthorized' });
 
-        const token = authHeader.replace(/^Bearer\s+/i, "");
-        const decoded = jwt.verify(token, jwtSecret);
+        // Convert to plain object and remove sensitive fields
+        const user = userDoc.toObject();
+        delete user.passwordHash;
 
-        const user = await User.findById(decoded.id);
-        if (!user) return res.status(401).json({ message: "User not found" });
-
-        req.user = user; // attach full user object
+        req.user = user;
         next();
     } catch (err) {
-        console.error("Auth error:", err.message);
-        res.status(401).json({ message: "Invalid token" });
+        res.status(401).json({ message: 'Unauthorized' });
     }
-}
+};
 
 module.exports = {
     getUserFromToken,
