@@ -1,41 +1,41 @@
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const morgan = require('morgan');
-const { ApolloServer } = require('apollo-server-express');
-const typeDefs = require('./graphql/schema');
-const resolvers = require('./graphql/resolvers');
-const { getUserFromToken } = require('./middleware/auth');
+const express = require("express");
+const cors = require("cors");
+const morgan = require("morgan");
+const routes = require("./routes");
+const errorHandler = require("./middleware/errorHandler");
+const { ApolloServer } = require("apollo-server-express");
+const typeDefs = require("./graphql/schema");
+const resolvers = require("./graphql/resolvers");
+const { getUserFromToken } = require("./middleware/auth");
 
-async function createApp() {
-    const app = express();
+const app = express();
 
-    app.use(helmet());
-    app.use(cors());
-    app.use(express.json());
-    app.use(morgan('dev'));
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
 
-    const server = new ApolloServer({
-        typeDefs,
-        resolvers,
-        context: async ({ req }) => {
-            const token = req.headers.authorization || '';
-            const user = await getUserFromToken(token);
-            return { user };
-        }
-    });
-    await server.start();
-    server.applyMiddleware({ app, path: '/graphql' });
+// REST routes
+app.use("/", routes);
 
-    app.get('/', (req, res) => res.send('OK'));
+// GraphQL server
+const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: async ({ req }) => {
+        const token = req.headers.authorization || "";
+        const user = await getUserFromToken(token);
+        return { user };
+    }
+});
 
-    // basic error handler
-    app.use((err, req, res, next) => {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    });
+server.start().then(() => server.applyMiddleware({ app, path: "/graphql" }));
 
-    return app;
-}
+// Fallback for unknown routes
+app.use((req, res) => {
+    res.status(404).json({ message: "Route not found" });
+});
 
-module.exports = createApp;
+// Error handling middleware
+app.use(errorHandler);
+
+module.exports = app;
